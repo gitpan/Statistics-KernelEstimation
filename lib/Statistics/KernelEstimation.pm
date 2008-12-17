@@ -6,7 +6,7 @@ use warnings;
 
 use Carp;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 # =================================================================
 # TO DOs
@@ -363,7 +363,8 @@ sub optimal_bandwidth {
   my $x0 = $self->default_bandwidth();
   my $y0 = $self->_optimal_bandwidth_equation( $x0 );
 
-  my $x = 0.8*$x0;
+#  my $x = 0.8*$x0;
+  my $x = $x0 * ( 1 - 1e-6 );
   my $y = $self->_optimal_bandwidth_equation( $x );
 
   my $dx = 0;

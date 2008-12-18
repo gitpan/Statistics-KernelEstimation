@@ -9,3 +9,7 @@ Revision history for Perl extension Statistics::KernelEstimation.
 	the optimal bandwidth. A more globally convergent algorithm
 	would be desirable.
 
+0.03  Wed Dec 17 2008
+	- added a new method to find the optimal bandwidth using the
+	bisection method, which is guaranteed to converge, given 
+	properly chosen starting points.

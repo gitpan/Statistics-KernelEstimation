@@ -6,7 +6,7 @@ use warnings;
 
 use Carp;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 # =================================================================
 # TO DOs
@@ -363,8 +363,8 @@ sub optimal_bandwidth {
   my $x0 = $self->default_bandwidth();
   my $y0 = $self->_optimal_bandwidth_equation( $x0 );
 
-#  my $x = 0.8*$x0;
-  my $x = $x0 * ( 1 - 1e-6 );
+  my $x = 0.8*$x0;
+# my $x = $x0 * ( 1 - 1e-6 );
   my $y = $self->_optimal_bandwidth_equation( $x );
 
   my $dx = 0;
@@ -380,6 +380,47 @@ sub optimal_bandwidth {
   if( wantarray ) { return ( $x, $i ); }
   return $x;
 }
+
+sub optimal_bandwidth_safe {
+  my $self = shift;
+  my $eps  = @_ ? shift : 1e-3;
+  my $x0 = @_ ? shift : $self->default_bandwidth() / $self->count();
+  my $x1 = @_ ? shift : 2*$self->default_bandwidth();
+
+  unless( $self->{optimizable} ) {
+    croak "Bandwidth Optimization not available for this type of kernel.";
+  }
+
+  if( $self->{sum_cnt} == 0 ) { return undef; }
+
+  my $y0 = $self->_optimal_bandwidth_equation( $x0 );
+  my $y1 = $self->_optimal_bandwidth_equation( $x1 );
+
+  unless( $y0 * $y1 < 0 ) {
+    croak "Interval [ f(x0=$x0)=$y0 : f(x1=$x1)=$y1 ] does not bracket root.";
+  }
+
+  my ( $x, $y, $i ) = ( 0, 0, 0 );
+  while( abs( $x0 - $x1 ) > $eps*$x1 ) {
+    $i += 1;
+
+    $x = ( $x0 + $x1 )/2;
+    $y = $self->_optimal_bandwidth_equation( $x );
+
+    if( abs( $y ) < $eps*$y0 ) { last }
+
+    if( $y * $y0 < 0 ) {
+      ( $x1, $y1 ) = ( $x, $y );
+    } else {
+      ( $x0, $y0 ) = ( $x, $y );
+    }
+  }
+
+  if( wantarray ) { return ( $x, $i ); }
+  return $x;
+}
+
+
 
 # This routine encodes the self-consistent equation that is fulfilled
 # by the optimal bandwidth. Notation according to Bowman & Azzalini.
@@ -732,9 +773,18 @@ sized data sets (a few hundred points), the process can take a while
 (5-30 seconds), more for larger data sets.
 
 The optimal bandwidth is the solution to a self-consistent equation.
-This module's implementation solves this equation using an iterative
-method (secant method). The usual warnings about possible non-convergence
-apply.
+This module provides two different algorithms to solve this equation:
+one fast, the other one guaranteed safe.
+
+The fast algorithm uses the secant method and should be tried first,
+in particular for larger data sets (hundreds of points). As with all
+iterative non-linear equation solvers, it is not guaranteed to converge.
+
+The safe algorithm uses the bisection method. With properly chosen
+end-points, the bisection method is guaranteed to converge. It is
+slower (by about a factor of 3), compared to the secant method. For
+smaller data sets (less than hundred points), the difference in speed
+is imperceptible.
 
 I<Bandwidth optimization is only available for the Gaussian kernel.>
 
@@ -742,7 +792,8 @@ I<Bandwidth optimization is only available for the Gaussian kernel.>
 
 =item $s->optimal_bandwidth()
 
-Returns the optimal bandwidth in an AMISE sense in scalar context.
+Finds the optimal bandwith in an AMISE sense using the secant method.
+Returns the value for the optimal bandwidth in scalar context.
 In array context, returns a two element array ( $bw, $n ), where
 the first element is the optimal bandwidth, and the second element
 is the number of steps required to achieve convergence in the secant
@@ -753,6 +804,23 @@ method.
 The same as $s->optimal_bandwidth(), but setting explicitly the
 maximum number of iteration steps in the secant method $n (default:
 $n=25), and the relative final residual $eps (default: $eps=1e-3).
+
+=item $s->optimal_bandwidth_safe()
+
+Finds the optimal bandwith in an AMISE sense using the bisection method.
+Returns the value for the optimal bandwidth in scalar context.
+In array context, returns a two element array ( $bw, $n ), where
+the first element is the optimal bandwidth, and the second element
+is the number of steps required to achieve convergence in the bisection
+method.
+
+=item $s->optimal_bandwidth_safe( $eps, $x1, $x2 )
+
+The same as $s->optimal_bandwidth_safe(), but setting explicitly the
+desired relative accuracy of the result (default: $eps=1e-3), and the
+two end-points of the bisection interval (defaults:
+$x1=default_bandwidth/count, $x2=2*default_bandwidth). The endpoints
+must bracket a root.
 
 =back
 

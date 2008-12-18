@@ -6,7 +6,7 @@ use warnings;
 
 use Carp;
 
-our $VERSION = '0.03';
+our $VERSION = '0.05';
 
 # =================================================================
 # TO DOs
@@ -338,6 +338,7 @@ sub _notNegative {
 # 1) Straight iteration
 # 2) Newton's method
 # 3) Sekant method
+# 4) Bisection
 #
 # Integration:
 # 1) Numerical differentiation
@@ -381,11 +382,13 @@ sub optimal_bandwidth {
   return $x;
 }
 
+# This routine uses the secant method.
+
 sub optimal_bandwidth_safe {
   my $self = shift;
-  my $eps  = @_ ? shift : 1e-3;
   my $x0 = @_ ? shift : $self->default_bandwidth() / $self->count();
   my $x1 = @_ ? shift : 2*$self->default_bandwidth();
+  my $eps  = @_ ? shift : 1e-3;
 
   unless( $self->{optimizable} ) {
     croak "Bandwidth Optimization not available for this type of kernel.";
@@ -419,8 +422,6 @@ sub optimal_bandwidth_safe {
   if( wantarray ) { return ( $x, $i ); }
   return $x;
 }
-
-
 
 # This routine encodes the self-consistent equation that is fulfilled
 # by the optimal bandwidth. Notation according to Bowman & Azzalini.
@@ -612,7 +613,7 @@ functions.
 
 This module is intended for small to medium-sized data sets (up to a few
 hundreds or thousands of points). It is not intended for very large data
-sets, or for multi-dimenstional data sets. (Although nothing prevents
+sets, or for multi-dimensional data sets. (Although nothing prevents
 applications to huge data sets, performance is likely to be poor.)
 
 
@@ -767,6 +768,7 @@ This module contains limited support for optimal bandwidth selection.
 The $s->optimal_bandwidth() function returns a value for the kernel
 bandwidth which is optimal in the AMISE (Asymptotic Mean Square Error)
 sense. Check the literature listed below for details.
+I<Bandwidth optimization is only available for the Gaussian kernel.>
 
 B<Bandwidth optimization is an expensive process!> Even for moderately
 sized data sets (a few hundred points), the process can take a while
@@ -786,13 +788,20 @@ slower (by about a factor of 3), compared to the secant method. For
 smaller data sets (less than hundred points), the difference in speed
 is imperceptible.
 
-I<Bandwidth optimization is only available for the Gaussian kernel.>
+The bandwidth optimization routines in this module use iterative
+algorithms to solve a non-linear equation. Several parameters are
+provided which can be used to fine-tune the behavior of these routines
+in case the defaults are not sufficient to achieve the desired
+convergence. You can consult any standard reference on numerical
+analysis for the meaning of these parameters and how to use them.
+(The chapter on non-linear equations in "Numerical Recipes" by
+Press, Teukolsky, Vetterling, Flannery is sufficient.)
 
 =over 5
 
 =item $s->optimal_bandwidth()
 
-Finds the optimal bandwith in an AMISE sense using the secant method.
+Finds the optimal bandwidth in an AMISE sense using the secant method.
 Returns the value for the optimal bandwidth in scalar context.
 In array context, returns a two element array ( $bw, $n ), where
 the first element is the optimal bandwidth, and the second element
@@ -807,14 +816,14 @@ $n=25), and the relative final residual $eps (default: $eps=1e-3).
 
 =item $s->optimal_bandwidth_safe()
 
-Finds the optimal bandwith in an AMISE sense using the bisection method.
+Finds the optimal bandwidth in an AMISE sense using the bisection method.
 Returns the value for the optimal bandwidth in scalar context.
 In array context, returns a two element array ( $bw, $n ), where
 the first element is the optimal bandwidth, and the second element
 is the number of steps required to achieve convergence in the bisection
 method.
 
-=item $s->optimal_bandwidth_safe( $eps, $x1, $x2 )
+=item $s->optimal_bandwidth_safe( $x1, $x2, $eps )
 
 The same as $s->optimal_bandwidth_safe(), but setting explicitly the
 desired relative accuracy of the result (default: $eps=1e-3), and the
@@ -884,7 +893,7 @@ x-coordinate, but increasing y-value.
 For descriptive summary statistics, check out the
 Statistics::Descriptive module on CPAN.
 
-Good information on Kernel Density Estimatino can be found in
+Good information on Kernel Density Estimation can be found in
 the following books (in descending order of detail):
 
 =over 4
